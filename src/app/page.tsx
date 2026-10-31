@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 export default function Home() {
   const [role, setRole] = useState<'STUDENT' | 'STAFF'>('STUDENT');
-  const [activeTab, setActiveTab] = useState<'matches' | 'report-lost' | 'report-found' | 'custody' | 'analytics' | 'audit'>('matches');
+  const [activeTab, setActiveTab] = useState<'matches' | 'report-lost' | 'report-found' | 'custody' | 'locations'>('matches');
   const [toast, setToast] = useState<{ title: string; message: string } | null>(null);
   const [showInspector, setShowInspector] = useState(false);
   const [selectedSqlTab, setSelectedSqlTab] = useState<'vector' | 'proc' | 'trigger' | 'view'>('vector');
@@ -13,14 +13,14 @@ export default function Home() {
   const [lostTitle, setLostTitle] = useState('');
   const [lostCat, setLostCat] = useState('Electronics');
   const [lostColor, setLostColor] = useState('Silver');
-  const [lostLoc, setLostLoc] = useState('Central Library');
+  const [lostLoc, setLostLoc] = useState('Central Library (3rd Floor)');
   const [lostDesc, setLostDesc] = useState('');
 
   const [foundTitle, setFoundTitle] = useState('');
   const [foundCat, setFoundCat] = useState('Electronics');
   const [foundColor, setFoundColor] = useState('Silver');
-  const [foundLoc, setFoundLoc] = useState('Central Library');
-  const [foundLocker, setFoundLocker] = useState('Security Locker B-12');
+  const [foundLoc, setFoundLoc] = useState('Central Library (3rd Floor)');
+  const [foundLocker, setFoundLocker] = useState('Front Security Desk (Locker B-12)');
   const [foundDesc, setFoundDesc] = useState('');
 
   // Claim modal state
@@ -28,83 +28,87 @@ export default function Home() {
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
   const [secretProof, setSecretProof] = useState('');
 
-  // Sample data states
+  // Items State
   const [matches, setMatches] = useState([
     {
-      lost_id: 'lost-101',
-      lost_title: 'Silver MacBook Air M2',
-      lost_desc: 'Silver 13-inch notebook with GitHub Octocat sticker near trackpad.',
-      lost_loc: 'Central Library',
-      found_id: 'fnd-201',
-      found_title: 'Apple Notebook with Sticker',
-      found_desc: 'Notebook computer, coder sticker on bottom-right, light scuff on casing.',
-      found_loc: 'Central Library',
-      locker: 'Locker B-12 (Central Desk)',
-      score: 94.8,
-      cosine: 91.2,
-      locBonus: 15.0,
+      id: 'item-1',
+      lost_title: '13" MacBook Air M2',
+      lost_desc: 'Silver aluminum laptop with a small GitHub sticker near trackpad.',
+      lost_loc: 'Central Library, 3rd Floor',
+      lost_date: '2 days ago',
+      found_title: 'Silver Apple Laptop',
+      found_desc: 'Turned in with small developer sticker and protective sleeve.',
+      found_loc: 'Central Library, 3rd Floor',
+      custody_desk: 'Central Security Desk (Locker B-12)',
+      found_date: 'Yesterday',
+      confidence: 95,
+      category: 'Electronics',
     },
     {
-      lost_id: 'lost-102',
-      lost_title: 'Student ID Badge in Navy Lanyard',
-      lost_desc: 'Campus photo ID ending in 042, dark blue woven lanyard.',
-      lost_loc: 'B-Block Cafeteria',
-      found_id: 'fnd-202',
-      found_title: 'Campus ID Card & Lanyard',
-      found_desc: 'Student ID card in blue neck strap found on dining table.',
-      found_loc: 'B-Block Cafeteria',
-      locker: 'Security Drawer A-04',
-      score: 93.4,
-      cosine: 88.4,
-      locBonus: 15.0,
+      id: 'item-2',
+      lost_title: 'Campus ID Card & Navy Lanyard',
+      lost_desc: 'Student photo ID ending in 042 with room key attached.',
+      lost_loc: 'Main Cafeteria, B-Block',
+      lost_date: 'Yesterday',
+      found_title: 'Student ID Badge on Blue Strap',
+      found_desc: 'Found on table 14 near the coffee counter.',
+      found_loc: 'Main Cafeteria, B-Block',
+      custody_desk: 'B-Block Security Desk (Drawer A-4)',
+      found_date: 'Today',
+      confidence: 93,
+      category: 'ID & Cards',
+    },
+    {
+      id: 'item-3',
+      lost_title: 'Black Chronograph Wristwatch',
+      lost_desc: 'Black metal link strap with red second hand.',
+      lost_loc: 'Sports Complex (Court 2)',
+      lost_date: '3 days ago',
+      found_title: 'Black Analog Watch',
+      found_desc: 'Found on bench in badminton arena.',
+      found_loc: 'Sports Complex (Court 2)',
+      custody_desk: 'Sports Desk Custody (Locker C-1)',
+      found_date: '3 days ago',
+      confidence: 89,
+      category: 'Accessories',
     },
   ]);
 
   const [claims, setClaims] = useState([
     {
-      claim_id: 'clm-301',
-      title: 'Student ID Badge in Navy Lanyard',
-      claimant: 'Sarah Jenkins (STU-2024-042)',
-      proof: 'Has a small silver locker key tied to lanyard knot and PRN ending in 042.',
-      score: 93.4,
-      locker: 'Security Drawer A-04',
-      status: 'SUBMITTED',
+      claim_id: 'clm-101',
+      item_title: 'Campus ID Card & Navy Lanyard',
+      claimant: 'Sarah Jenkins',
+      proof: 'Small brass room key tied to the lanyard knot; student ID ends in 042.',
+      custody_desk: 'B-Block Security Desk (Drawer A-4)',
+      submitted_time: '15 mins ago',
+      status: 'Awaiting Staff Review',
     },
-  ]);
-
-  const [auditLogs, setAuditLogs] = useState([
-    { id: 1, table: 'found_items', record: 'fnd-201', old: 'NULL', new: 'IN_CUSTODY', user: 'Officer Robert Miller', time: '10:15 AM' },
-    { id: 2, table: 'lost_items', record: 'lost-101', old: 'NULL', new: 'SEARCHING', user: 'Alex Chen', time: '10:42 AM' },
-    { id: 3, table: 'claims', record: 'clm-301', old: 'NULL', new: 'SUBMITTED', user: 'Sarah Jenkins', time: '11:05 AM' },
   ]);
 
   const triggerToast = (title: string, message: string) => {
     setToast({ title, message });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 3500);
   };
 
   const handleReportLostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newLost = {
-      lost_id: `lost-${Math.floor(100 + Math.random() * 900)}`,
+    const newMatch = {
+      id: `item-${Date.now()}`,
       lost_title: lostTitle,
       lost_desc: lostDesc,
       lost_loc: lostLoc,
-      found_id: `fnd-201`,
-      found_title: 'Apple Notebook with Sticker',
-      found_desc: 'Notebook computer in custody locker.',
-      found_loc: 'Central Library',
-      locker: 'Locker B-12',
-      score: 92.6,
-      cosine: 89.1,
-      locBonus: 15.0,
+      lost_date: 'Just now',
+      found_title: 'Matching Item in Custody',
+      found_desc: 'An item matching your description is currently held at the security desk.',
+      found_loc: lostLoc,
+      custody_desk: 'Central Security Desk',
+      found_date: 'Recently',
+      confidence: 91,
+      category: lostCat,
     };
-    setMatches([newLost, ...matches]);
-    setAuditLogs([
-      { id: auditLogs.length + 1, table: 'lost_items', record: newLost.lost_id, old: 'NULL', new: 'SEARCHING', user: 'Alex Chen', time: 'Just now' },
-      ...auditLogs,
-    ]);
-    triggerToast('PostgreSQL Record Stored', `Generated 384-d vector for '${lostTitle}' & executed HNSW search.`);
+    setMatches([newMatch, ...matches]);
+    triggerToast('Report Submitted!', 'Our smart matching engine is actively scanning custody inventory.');
     setLostTitle('');
     setLostDesc('');
     setActiveTab('matches');
@@ -112,573 +116,572 @@ export default function Home() {
 
   const handleReportFoundSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newFoundId = `fnd-${Math.floor(200 + Math.random() * 800)}`;
-    setAuditLogs([
-      { id: auditLogs.length + 1, table: 'found_items', record: newFoundId, old: 'NULL', new: 'IN_CUSTODY', user: 'Officer Robert Miller', time: 'Just now' },
-      ...auditLogs,
-    ]);
-    triggerToast('Item Deposited in Custody', `Assigned to ${foundLocker}. Embeddings indexed in PostgreSQL.`);
+    triggerToast('Item Logged in Custody', `Stored securely at ${foundLocker}. Thank you for helping!`);
     setFoundTitle('');
     setFoundDesc('');
     setActiveTab('matches');
   };
 
-  const handleExecuteHandover = (claimId: string) => {
-    setClaims(claims.map((c) => (c.claim_id === claimId ? { ...c, status: 'HANDED_OVER' } : c)));
-    setAuditLogs([
-      { id: auditLogs.length + 1, table: 'claims', record: claimId, old: 'SUBMITTED', new: 'HANDED_OVER', user: 'Officer Robert Miller', time: 'Just now' },
-      ...auditLogs,
-    ]);
-    triggerToast(
-      'ACID Handover Committed!',
-      `sp_execute_item_handover('${claimId}') executed with row-level locks.`
+  const handleApproveClaim = (claimId: string) => {
+    setClaims(
+      claims.map((c) => (c.claim_id === claimId ? { ...c, status: 'Claim Verified & Handed Over' } : c))
     );
+    triggerToast('Handover Completed', 'Ownership verified and custody record closed.');
   };
 
   const handleClaimSubmit = () => {
     if (!secretProof) return;
     const newClaim = {
-      claim_id: `clm-${Math.floor(300 + Math.random() * 700)}`,
-      title: selectedMatch?.found_title || 'Item in Custody',
-      claimant: 'Alex Chen (STU-2024-001)',
+      claim_id: `clm-${Date.now()}`,
+      item_title: selectedMatch?.found_title || 'Item in Custody',
+      claimant: 'Alex Chen',
       proof: secretProof,
-      score: selectedMatch?.score || 94.0,
-      locker: selectedMatch?.locker || 'Locker B-12',
-      status: 'SUBMITTED',
+      custody_desk: selectedMatch?.custody_desk || 'Central Security Desk',
+      submitted_time: 'Just now',
+      status: 'Awaiting Staff Review',
     };
     setClaims([newClaim, ...claims]);
-    setAuditLogs([
-      { id: auditLogs.length + 1, table: 'claims', record: newClaim.claim_id, old: 'NULL', new: 'SUBMITTED', user: 'Alex Chen', time: 'Just now' },
-      ...auditLogs,
-    ]);
     setClaimModalOpen(false);
     setSecretProof('');
-    triggerToast('Claim Submitted to Security Desk', 'Staff will review verification proof before locker release.');
-    setActiveTab('custody');
+    triggerToast('Claim Sent to Security Staff', 'Staff will review your identifying proof before release.');
+    if (role === 'STAFF') setActiveTab('custody');
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-      {/* Toast Notification */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Toast Alert */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/50 shadow-2xl rounded-2xl p-4 max-w-sm flex items-start gap-3 transition-all animate-bounce">
-          <div className="text-xl">⚡</div>
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/40 shadow-2xl rounded-2xl p-4 max-w-sm flex items-start gap-3 transition-all">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold shrink-0">
+            ✓
+          </div>
           <div>
-            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">{toast.title}</h4>
+            <h4 className="text-xs font-bold text-white">{toast.title}</h4>
             <p className="text-xs text-slate-300 mt-0.5">{toast.message}</p>
           </div>
         </div>
       )}
 
-      {/* Top Header Bar */}
-      <header className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-500 font-bold text-2xl shadow-inner">
-            🔍
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-extrabold text-xl text-white tracking-tight">Smart Campus Lost & Found</h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">
-                PostgreSQL + pgvector
-              </span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 font-semibold">
-                HNSW Indexing
+      {/* Top Navbar */}
+      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+              🔍
+            </div>
+            <div>
+              <span className="font-bold text-base text-white tracking-tight">Campus Lost & Found</span>
+              <span className="hidden sm:inline-block text-xs text-slate-400 ml-2 border-l border-slate-700 pl-2">
+                Fast recovery across campus
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Semantic vector item matching, ACID custody handovers, and hotspot analytics
-            </p>
-          </div>
-        </div>
-
-        {/* Role Switcher & Inspector */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-1 flex items-center text-xs">
-            <button
-              onClick={() => {
-                setRole('STUDENT');
-                triggerToast('Switched to Student Role', 'Authenticated as Alex Chen (STU-2024-001)');
-              }}
-              className={`px-3 py-1.5 rounded-xl font-medium transition-all ${
-                role === 'STUDENT' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              🎓 Student
-            </button>
-            <button
-              onClick={() => {
-                setRole('STAFF');
-                triggerToast('Switched to Security Staff', 'Officer Robert Miller authenticated for custody desk.');
-              }}
-              className={`px-3 py-1.5 rounded-xl font-medium transition-all ${
-                role === 'STAFF' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              🛡️ Security Desk
-            </button>
           </div>
 
-          <button
-            onClick={() => setShowInspector(true)}
-            className="px-3.5 py-2 rounded-2xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-blue-400 flex items-center gap-1.5 transition-colors shadow-sm"
-          >
-            <span>⚡</span> SQL Inspector
-          </button>
+          <div className="flex items-center gap-2.5">
+            {/* View Mode Toggle */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-1 flex items-center text-xs">
+              <button
+                onClick={() => {
+                  setRole('STUDENT');
+                  triggerToast('Switched View', 'Browsing as student');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                  role === 'STUDENT' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Student View
+              </button>
+              <button
+                onClick={() => {
+                  setRole('STAFF');
+                  triggerToast('Staff Portal', 'Logged in as Campus Security Staff');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                  role === 'STAFF' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Staff Portal
+              </button>
+            </div>
+
+            {/* Developer Specs Button */}
+            <button
+              onClick={() => setShowInspector(true)}
+              className="px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors hidden md:flex items-center gap-1.5"
+              title="Inspect SQL queries, stored procedures, and vector engine"
+            >
+              <span>⚙️</span> Database Specs
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <nav className="flex border-b border-slate-800 gap-2 overflow-x-auto pb-1 text-sm font-medium">
-        <button
-          onClick={() => setActiveTab('matches')}
-          className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'matches'
-              ? 'border-blue-500 text-blue-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>✨</span> Semantic Matches ({matches.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('report-lost')}
-          className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'report-lost'
-              ? 'border-blue-500 text-blue-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>📢</span> Report Lost Item
-        </button>
-        <button
-          onClick={() => setActiveTab('report-found')}
-          className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'report-found'
-              ? 'border-blue-500 text-blue-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>📦</span> Deposit Found Item
-        </button>
-        <button
-          onClick={() => setActiveTab('custody')}
-          className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'custody'
-              ? 'border-blue-500 text-blue-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>🛡️</span> Custody Desk ({claims.filter((c) => c.status !== 'HANDED_OVER').length})
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'analytics'
-              ? 'border-blue-500 text-blue-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>📊</span> Campus Hotspots View
-        </button>
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'audit'
-              ? 'border-blue-500 text-blue-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>📜</span> Trigger Audit Log ({auditLogs.length})
-        </button>
-      </nav>
-
-      {/* TAB 1: MATCHES */}
-      {activeTab === 'matches' && (
-        <section className="space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
-            <div>
-              <h2 className="font-bold text-sm text-white flex items-center gap-2">
-                <span>🧠</span> pgvector Cosine Similarity Pairings
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Computed via: <code className="text-purple-400 font-mono">1 - (lost.embedding &lt;=&gt; found.embedding)</code> + location & category weights.
-              </p>
-            </div>
-            <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl">
-              HNSW Distance &lt;=&gt; Active
-            </span>
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+        
+        {/* Simple Summary Header */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4">
+            <span className="text-xs text-slate-400 block">Active Search Reports</span>
+            <span className="text-2xl font-bold text-white mt-1 block">18 items</span>
           </div>
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4">
+            <span className="text-xs text-slate-400 block">Safely in Custody</span>
+            <span className="text-2xl font-bold text-amber-400 mt-1 block">12 items</span>
+          </div>
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4">
+            <span className="text-xs text-slate-400 block">Returned to Owners</span>
+            <span className="text-2xl font-bold text-emerald-400 mt-1 block">6 reunited</span>
+          </div>
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4">
+            <span className="text-xs text-slate-400 block">Recovery Success Rate</span>
+            <span className="text-2xl font-bold text-blue-400 mt-1 block">76%</span>
+          </div>
+        </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {matches.map((item, idx) => (
-              <div key={idx} className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-md hover:border-slate-700 transition-all">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
-                  <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                      {item.score}% Match Confidence
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      Raw Cosine: <strong className="text-purple-400 font-mono">{item.cosine}%</strong>
-                    </span>
+        {/* Action Tabs */}
+        <div className="flex border-b border-slate-800 gap-2 overflow-x-auto text-sm font-medium pb-1">
+          <button
+            onClick={() => setActiveTab('matches')}
+            className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'matches'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>✨</span> Likely Matches ({matches.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('report-lost')}
+            className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'report-lost'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>📢</span> I Lost Something
+          </button>
+          <button
+            onClick={() => setActiveTab('report-found')}
+            className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'report-found'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>📦</span> I Found Something
+          </button>
+
+          {role === 'STAFF' && (
+            <button
+              onClick={() => setActiveTab('custody')}
+              className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'custody'
+                  ? 'border-blue-500 text-blue-400 font-semibold'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>🛡️</span> Security Handover Desk ({claims.filter((c) => !c.status.includes('Handed Over')).length})
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab('locations')}
+            className={`px-4 py-2.5 border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'locations'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>📍</span> Campus Hotspots
+          </button>
+        </div>
+
+        {/* TAB 1: MATCH FEED (Simple, Human-Friendly Cards) */}
+        {activeTab === 'matches' && (
+          <div className="space-y-4">
+            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Suggested Matches</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Items reported lost that strongly resemble inventory currently stored in campus custody.
+                </p>
+              </div>
+              <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-xl font-medium hidden sm:inline-block">
+                Auto-Matching Active
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {matches.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-slate-900 border border-slate-800/90 rounded-2xl p-5 shadow-sm hover:border-slate-700 transition-all space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {item.confidence}% Match Likelihood
+                      </span>
+                      <span className="text-xs text-slate-400">Category: {item.category}</span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedMatch(item);
+                        setClaimModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
+                    >
+                      Claim This Item
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedMatch(item);
-                      setClaimModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
-                  >
-                    <span>🔐</span> Claim This Item
-                  </button>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider block mb-1">Reported Lost</span>
-                    <h3 className="font-bold text-sm text-white">{item.lost_title}</h3>
-                    <p className="text-xs text-slate-400 mt-1">{item.lost_desc}</p>
-                    <div className="mt-3 text-xs text-slate-500">📍 {item.lost_loc}</div>
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Left: What was lost */}
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/70">
+                      <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                        <span className="text-red-400 font-semibold uppercase tracking-wider text-[11px]">Reported Lost</span>
+                        <span>{item.lost_date}</span>
+                      </div>
+                      <h3 className="font-bold text-sm text-white">{item.lost_title}</h3>
+                      <p className="text-xs text-slate-400 mt-1">{item.lost_desc}</p>
+                      <div className="mt-3 text-xs text-slate-500 flex items-center gap-1">
+                        <span>📍 Last seen: {item.lost_loc}</span>
+                      </div>
+                    </div>
 
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-1">In Security Custody</span>
-                    <h3 className="font-bold text-sm text-white">{item.found_title}</h3>
-                    <p className="text-xs text-slate-400 mt-1">{item.found_desc}</p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                      <span>📍 {item.found_loc}</span>
-                      <span className="text-amber-400 font-semibold">{item.locker}</span>
+                    {/* Right: What was found */}
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/70">
+                      <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                        <span className="text-emerald-400 font-semibold uppercase tracking-wider text-[11px]">Found & In Safe Custody</span>
+                        <span>{item.found_date}</span>
+                      </div>
+                      <h3 className="font-bold text-sm text-white">{item.found_title}</h3>
+                      <p className="text-xs text-slate-400 mt-1">{item.found_desc}</p>
+                      <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                        <span>📍 Found at: {item.found_loc}</span>
+                        <span className="text-amber-400 font-medium">🔒 {item.custody_desk}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* TAB 2: REPORT LOST */}
-      {activeTab === 'report-lost' && (
-        <section className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-          <h2 className="font-bold text-base text-white mb-1">📢 Report a Lost Item</h2>
-          <p className="text-xs text-slate-400 mb-5">Item description will be converted into a 384-dimensional vector embedding.</p>
-
-          <form onSubmit={handleReportLostSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold mb-1 text-slate-200">Item Title *</label>
-              <input
-                type="text"
-                required
-                value={lostTitle}
-                onChange={(e) => setLostTitle(e.target.value)}
-                placeholder="e.g. Silver MacBook Air M2"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-semibold mb-1 text-slate-200">Category *</label>
-                <select
-                  value={lostCat}
-                  onChange={(e) => setLostCat(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="Electronics">Electronics</option>
-                  <option value="ID & Cards">Campus ID & Cards</option>
-                  <option value="Personal Accessories">Personal Accessories</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-semibold mb-1 text-slate-200">Primary Color *</label>
-                <input
-                  type="text"
-                  required
-                  value={lostColor}
-                  onChange={(e) => setLostColor(e.target.value)}
-                  placeholder="e.g. Silver, Black"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold mb-1 text-slate-200">Campus Location *</label>
-              <select
-                value={lostLoc}
-                onChange={(e) => setLostLoc(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-              >
-                <option value="Central Library">Central Library (3rd Floor Reading Hall)</option>
-                <option value="B-Block Cafeteria">B-Block (Food Court)</option>
-                <option value="Tech Park">Tech Park (Level 5 CSE Labs)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-semibold mb-1 text-slate-200">Description for Embeddings *</label>
-              <textarea
-                rows={3}
-                required
-                value={lostDesc}
-                onChange={(e) => setLostDesc(e.target.value)}
-                placeholder="Mention scratches, stickers, distinct markings, engravings..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono text-purple-400 truncate">
-              Embedding Pipeline: [0.0381, -0.0921, 0.1145, -0.0029, 0.0812, ...]
-            </div>
-
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm">
-              🚀 Store in PostgreSQL & Trigger Search
-            </button>
-          </form>
-        </section>
-      )}
-
-      {/* TAB 3: REPORT FOUND */}
-      {activeTab === 'report-found' && (
-        <section className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-          <h2 className="font-bold text-base text-white mb-1">📦 Turn In a Found Item</h2>
-          <p className="text-xs text-slate-400 mb-5">Item will be assigned to a campus custody locker.</p>
-
-          <form onSubmit={handleReportFoundSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold mb-1 text-slate-200">Item Title *</label>
-              <input
-                type="text"
-                required
-                value={foundTitle}
-                onChange={(e) => setFoundTitle(e.target.value)}
-                placeholder="e.g. Apple Laptop with Sticker"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-semibold mb-1 text-slate-200">Location Found *</label>
-                <select
-                  value={foundLoc}
-                  onChange={(e) => setFoundLoc(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="Central Library">Central Library</option>
-                  <option value="B-Block Cafeteria">B-Block Cafeteria</option>
-                  <option value="Tech Park">Tech Park</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-semibold mb-1 text-slate-200">Custody Locker *</label>
-                <input
-                  type="text"
-                  required
-                  value={foundLocker}
-                  onChange={(e) => setFoundLocker(e.target.value)}
-                  placeholder="e.g. Locker B-14"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold mb-1 text-slate-200">Objective Visual Description *</label>
-              <textarea
-                rows={3}
-                required
-                value={foundDesc}
-                onChange={(e) => setFoundDesc(e.target.value)}
-                placeholder="Appearance, condition, surface stickers..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm">
-              📦 Deposit to Locker & Generate Embeddings
-            </button>
-          </form>
-        </section>
-      )}
-
-      {/* TAB 4: CUSTODY HANDOVER */}
-      {activeTab === 'custody' && (
-        <section className="space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 overflow-x-auto shadow-md">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Pending Verification & Handover Queue</h3>
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400">
-                  <th className="py-2.5 px-3">Item Title</th>
-                  <th className="py-2.5 px-3">Claimant</th>
-                  <th className="py-2.5 px-3">Secret Verification Proof</th>
-                  <th className="py-2.5 px-3">Locker Shelf</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-right">ACID Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {claims.map((clm) => (
-                  <tr key={clm.claim_id} className="hover:bg-slate-950 transition-colors">
-                    <td className="py-3 px-3 font-semibold text-white">{clm.title}</td>
-                    <td className="py-3 px-3 text-slate-300">{clm.claimant}</td>
-                    <td className="py-3 px-3 text-slate-400 max-w-xs truncate">{clm.proof}</td>
-                    <td className="py-3 px-3 text-amber-400 font-semibold">{clm.locker}</td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                        clm.status === 'HANDED_OVER' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'
-                      }`}>
-                        {clm.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      {clm.status !== 'HANDED_OVER' ? (
-                        <button
-                          onClick={() => handleExecuteHandover(clm.claim_id)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs transition-colors shadow-sm"
-                        >
-                          ⚡ Handover
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">Archived</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {/* TAB 5: HOTSPOTS */}
-      {activeTab === 'analytics' && (
-        <section className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-xs text-slate-400">Total Lost Reported</p>
-              <p className="text-2xl font-bold text-blue-400 mt-1">18</p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-xs text-slate-400">Items in Custody</p>
-              <p className="text-2xl font-bold text-amber-400 mt-1">12</p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-xs text-slate-400">Recovered to Owners</p>
-              <p className="text-2xl font-bold text-emerald-400 mt-1">6</p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-xs text-slate-400">Recovery Rate</p>
-              <p className="text-2xl font-bold text-purple-400 mt-1">76.4%</p>
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-sm space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">v_campus_loss_hotspots (SQL View)</h3>
-            {[
-              { loc: 'Central Library (3rd Floor Reading Hall)', zone: 'LIBRARY', rate: 85.7, lost: 7, recovered: 6 },
-              { loc: 'B-Block (Food Court)', zone: 'CAFETERIA', rate: 80.0, lost: 5, recovered: 4 },
-              { loc: 'Tech Park (Level 5 CSE Labs)', zone: 'LAB', rate: 75.0, lost: 4, recovered: 3 },
-            ].map((h, i) => (
-              <div key={i} className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-bold text-white">{h.loc}</span>
-                  <span className="text-emerald-400 font-bold">{h.rate}% Recovery Rate</span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2 mb-2 overflow-hidden">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${h.rate}%` }}></div>
-                </div>
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>Zone: {h.zone}</span>
-                  <span>Lost: {h.lost} | Recovered: {h.recovered}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* TAB 6: AUDIT LOG */}
-      {activeTab === 'audit' && (
-        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-5 overflow-x-auto shadow-md">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Trigger Audit Log (item_audit_log)</h3>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono">
-              Trigger: trg_audit_item_status
-            </span>
-          </div>
-          <table className="w-full text-left text-xs font-mono border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400">
-                <th className="py-2 px-3">Audit ID</th>
-                <th className="py-2 px-3">Table</th>
-                <th className="py-2 px-3">Record ID</th>
-                <th className="py-2 px-3">Old Status</th>
-                <th className="py-2 px-3">New Status</th>
-                <th className="py-2 px-3">Actor</th>
-                <th className="py-2 px-3 text-right">Time</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {auditLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-950">
-                  <td className="py-2.5 px-3 text-slate-500">#{log.id}</td>
-                  <td className="py-2.5 px-3 text-blue-400">{log.table}</td>
-                  <td className="py-2.5 px-3 text-white">{log.record}</td>
-                  <td className="py-2.5 px-3 text-red-400">{log.old}</td>
-                  <td className="py-2.5 px-3 text-emerald-400 font-bold">{log.new}</td>
-                  <td className="py-2.5 px-3 text-slate-300">{log.user}</td>
-                  <td className="py-2.5 px-3 text-right text-slate-500">{log.time}</td>
-                </tr>
               ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: REPORT LOST */}
+        {activeTab === 'report-lost' && (
+          <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+            <h2 className="font-bold text-base text-white mb-1">Report a Lost Item</h2>
+            <p className="text-xs text-slate-400 mb-5">
+              Fill in what you lost. If a matching item is already in custody or turned in later, you will be notified.
+            </p>
+
+            <form onSubmit={handleReportLostSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">What did you lose? *</label>
+                <input
+                  type="text"
+                  required
+                  value={lostTitle}
+                  onChange={(e) => setLostTitle(e.target.value)}
+                  placeholder="e.g. Blue Hydro Flask, Silver MacBook, Car Keys..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-300">Category *</label>
+                  <select
+                    value={lostCat}
+                    onChange={(e) => setLostCat(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Electronics">Electronics & Laptops</option>
+                    <option value="ID & Cards">Campus ID / Wallet / Cards</option>
+                    <option value="Keys">Keys & Fobs</option>
+                    <option value="Accessories">Accessories, Watches & Bags</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-300">Color *</label>
+                  <input
+                    type="text"
+                    required
+                    value={lostColor}
+                    onChange={(e) => setLostColor(e.target.value)}
+                    placeholder="e.g. Navy Blue, Silver, Black"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">Where did you lose it? *</label>
+                <select
+                  value={lostLoc}
+                  onChange={(e) => setLostLoc(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="Central Library (3rd Floor)">Central Library (3rd Floor Reading Hall)</option>
+                  <option value="Main Cafeteria, B-Block">Main Cafeteria, B-Block</option>
+                  <option value="Tech Park (Level 5 Labs)">Tech Park (Level 5 CSE Labs)</option>
+                  <option value="Sports Complex">Sports Complex & Courts</option>
+                  <option value="Auditorium Foyer">Auditorium Foyer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">Description & identifying features *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={lostDesc}
+                  onChange={(e) => setLostDesc(e.target.value)}
+                  placeholder="Mention unique scratches, stickers, brand name, keychains, or protective cases..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm"
+              >
+                Submit Lost Report
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 3: REPORT FOUND */}
+        {activeTab === 'report-found' && (
+          <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+            <h2 className="font-bold text-base text-white mb-1">Turn In a Found Item</h2>
+            <p className="text-xs text-slate-400 mb-5">
+              Found an unattended item on campus? Help us return it safely to its owner.
+            </p>
+
+            <form onSubmit={handleReportFoundSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">Item Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={foundTitle}
+                  onChange={(e) => setFoundTitle(e.target.value)}
+                  placeholder="e.g. Black Sony Headphones, Casio Watch..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-300">Location Found *</label>
+                  <select
+                    value={foundLoc}
+                    onChange={(e) => setFoundLoc(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Central Library (3rd Floor)">Central Library</option>
+                    <option value="Main Cafeteria, B-Block">Main Cafeteria, B-Block</option>
+                    <option value="Tech Park (Level 5 Labs)">Tech Park</option>
+                    <option value="Sports Complex">Sports Complex</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-300">Dropped Off At Desk *</label>
+                  <input
+                    type="text"
+                    required
+                    value={foundLocker}
+                    onChange={(e) => setFoundLocker(e.target.value)}
+                    placeholder="e.g. Front Security Desk"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-300">Visual Appearance *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={foundDesc}
+                  onChange={(e) => setFoundDesc(e.target.value)}
+                  placeholder="Describe general condition, color, and location where it was picked up..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm"
+              >
+                Log Found Item into Custody
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 4: SECURITY DESK (STAFF ONLY) */}
+        {activeTab === 'custody' && (
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">Pending Ownership Claims Queue</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Verify the claimant's secret proof before releasing physical items from custody.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto shadow-sm">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/40">
+                    <th className="py-3 px-4">Item</th>
+                    <th className="py-3 px-4">Claimant Name</th>
+                    <th className="py-3 px-4">Secret Verification Proof</th>
+                    <th className="py-3 px-4">Custody Locker</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {claims.map((clm) => (
+                    <tr key={clm.claim_id} className="hover:bg-slate-950/50 transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-white">{clm.item_title}</td>
+                      <td className="py-3.5 px-4 text-slate-300">{clm.claimant}</td>
+                      <td className="py-3.5 px-4 text-slate-300 max-w-xs">{clm.proof}</td>
+                      <td className="py-3.5 px-4 text-amber-400 font-medium">{clm.custody_desk}</td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            clm.status.includes('Handed Over')
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : 'bg-amber-500/10 text-amber-400'
+                          }`}
+                        >
+                          {clm.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {!clm.status.includes('Handed Over') ? (
+                          <button
+                            onClick={() => handleApproveClaim(clm.claim_id)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs transition-colors shadow-sm"
+                          >
+                            Approve & Release
+                          </button>
+                        ) : (
+                          <span className="text-slate-500 text-xs italic">Completed</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: CAMPUS HOTSPOTS */}
+        {activeTab === 'locations' && (
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-white mb-1">Campus Loss Hotspots</h3>
+              <p className="text-xs text-slate-400 mb-4">
+                High-traffic campus zones where items are most frequently lost and recovered.
+              </p>
+
+              <div className="space-y-3">
+                {[
+                  { name: 'Central Library (3rd Floor Reading Hall)', zone: 'Study Area', rate: 86, lost: 7, recovered: 6 },
+                  { name: 'Main Student Cafeteria (B-Block)', zone: 'Dining', rate: 80, lost: 5, recovered: 4 },
+                  { name: 'Tech Park (Level 5 Computer Labs)', zone: 'Academic Labs', rate: 75, lost: 4, recovered: 3 },
+                  { name: 'Campus Sports Arena & Courts', zone: 'Athletics', rate: 50, lost: 2, recovered: 1 },
+                ].map((loc, i) => (
+                  <div key={i} className="bg-slate-950 p-4 rounded-xl border border-slate-800/80">
+                    <div className="flex justify-between items-center text-xs mb-1.5">
+                      <span className="font-semibold text-white">{loc.name}</span>
+                      <span className="text-emerald-400 font-bold">{loc.rate}% Recovery Rate</span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-2 mb-2 overflow-hidden">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${loc.rate}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-400">
+                      <span>Zone: {loc.zone}</span>
+                      <span>Total Reported: {loc.lost} | Successfully Reclaimed: {loc.recovered}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
 
       {/* CLAIM VERIFICATION MODAL */}
       {claimModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-white">🔐 Submit Ownership Verification Proof</h3>
+              <h3 className="font-bold text-sm text-white">Claim Ownership of This Item</h3>
               <button onClick={() => setClaimModalOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
-              <p className="text-slate-400">Target Item:</p>
-              <p className="font-bold text-white">{selectedMatch?.found_title}</p>
-              <p className="text-amber-400 font-semibold mt-1">Locker: {selectedMatch?.locker}</p>
+
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-1">
+              <span className="text-slate-400 block">Item in custody:</span>
+              <p className="font-bold text-white text-sm">{selectedMatch?.found_title}</p>
+              <p className="text-amber-400 font-medium">Location: {selectedMatch?.custody_desk}</p>
             </div>
+
             <div className="space-y-1 text-xs">
-              <label className="block font-semibold text-slate-200">Secret Verification Proof *</label>
+              <label className="block font-semibold text-slate-200">
+                Secret Identifying Detail (Proof of Ownership) *
+              </label>
+              <p className="text-slate-400 text-[11px] mb-1">
+                Describe something not shown publicly (e.g., sticker location, serial number, lockscreen wallpaper, or contents inside).
+              </p>
               <textarea
                 rows={3}
+                required
                 value={secretProof}
                 onChange={(e) => setSecretProof(e.target.value)}
-                placeholder="Mention specific stickers, engravings, serial number, lockscreen wallpaper..."
+                placeholder="e.g. Has a small cat sticker on the lower left corner and a small scratch near the charger port..."
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
+
             <div className="flex justify-end gap-2 pt-2 text-xs font-semibold">
-              <button onClick={() => setClaimModalOpen(false)} className="px-4 py-2 rounded-xl border border-slate-800 text-slate-400 hover:bg-slate-800">
+              <button
+                onClick={() => setClaimModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-800 text-slate-400 hover:bg-slate-800"
+              >
                 Cancel
               </button>
-              <button onClick={handleClaimSubmit} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-                Submit Claim to Security Desk
+              <button
+                onClick={handleClaimSubmit}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              >
+                Submit Ownership Claim
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* SQL INSPECTOR MODAL */}
+      {/* DEVELOPER / DATABASE SPECS MODAL (Only when requested) */}
       {showInspector && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full p-6 shadow-2xl flex flex-col max-h-[85vh]">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
               <div>
-                <h3 className="font-bold text-sm text-white">⚡ Database Engine & Query Inspector</h3>
-                <p className="text-xs text-slate-400">PostgreSQL 16 + pgvector Execution Blueprints</p>
+                <h3 className="font-bold text-sm text-white">Database Engine & Query Specifications</h3>
+                <p className="text-xs text-slate-400">PostgreSQL 16 + pgvector Architecture Blueprints</p>
               </div>
               <button onClick={() => setShowInspector(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
@@ -690,7 +693,7 @@ export default function Home() {
                   selectedSqlTab === 'vector' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                1. pgvector Cosine Query
+                1. pgvector Search Query
               </button>
               <button
                 onClick={() => setSelectedSqlTab('proc')}
@@ -698,7 +701,7 @@ export default function Home() {
                   selectedSqlTab === 'proc' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                2. ACID Stored Procedure
+                2. ACID Handover Procedure
               </button>
               <button
                 onClick={() => setSelectedSqlTab('trigger')}
@@ -719,14 +722,14 @@ export default function Home() {
             </div>
 
             <pre className="flex-1 overflow-y-auto bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs font-mono text-emerald-400 whitespace-pre-wrap">
-              {selectedSqlTab === 'vector' && `-- pgvector Cosine Distance Search Operator (<=>)
+              {selectedSqlTab === 'vector' && `-- 1. pgvector Cosine Distance Search Operator (<=>)
 SELECT f.found_id, f.title, f.storage_custody_location,
        ROUND((1 - (f.embedding <=> l.embedding)) * 100, 2) AS cosine_similarity
 FROM found_items f, lost_items l
 WHERE l.lost_id = 'c0000000...0001' AND f.status = 'IN_CUSTODY'
 ORDER BY f.embedding <=> l.embedding ASC LIMIT 5;`}
 
-              {selectedSqlTab === 'proc' && `-- Multi-Statement ACID Stored Procedure with Row-Level Locking
+              {selectedSqlTab === 'proc' && `-- 2. Multi-Statement ACID Handover Procedure with Row-Level Locking
 CREATE OR REPLACE PROCEDURE sp_execute_item_handover(p_claim_id UUID, p_staff_id UUID, p_remarks TEXT)
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -737,12 +740,12 @@ BEGIN
     UPDATE claims SET claim_status = 'HANDED_OVER' WHERE claim_id = p_claim_id;
 END; $$;`}
 
-              {selectedSqlTab === 'trigger' && `-- Automated Audit Logging Trigger
+              {selectedSqlTab === 'trigger' && `-- 3. Automated State Audit Trigger
 CREATE TRIGGER trg_audit_found_item_status
 AFTER UPDATE OF status ON found_items
 FOR EACH ROW EXECUTE FUNCTION fn_audit_item_status_change();`}
 
-              {selectedSqlTab === 'view' && `-- Campus Loss Hotspot View with GROUP BY and HAVING
+              {selectedSqlTab === 'view' && `-- 4. Campus Loss Hotspot View with GROUP BY and HAVING
 CREATE VIEW v_campus_loss_hotspots AS
 SELECT cl.building_name, COUNT(DISTINCT l.lost_id) AS total_lost,
        COUNT(DISTINCT CASE WHEN f.status = 'RETURNED_TO_OWNER' THEN f.found_id END) AS total_recovered
