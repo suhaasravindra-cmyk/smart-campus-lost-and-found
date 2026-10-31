@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Campus Lost-and-Found Platform - Interactive Demo</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.5); }
+    .pulse-glow { animation: pulseGlow 2s infinite; }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.9; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen p-4 md:p-6 font-sans">
+
+  <!-- TOP APP BAR -->
+  <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 mb-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-500 font-bold text-xl">
+        🔍
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-lg text-[var(--foreground)]">Smart Campus Lost & Found</h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-medium">PostgreSQL + pgvector</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-500 font-medium">v1.0.0</span>
+        </div>
+        <p class="text-xs text-[var(--muted-foreground)]">AI-powered semantic item pairing, ACID custody handovers, & campus loss analytics</p>
+      </div>
+    </div>
+
+    <!-- ROLE SWITCHER & CONTROLS -->
+    <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+      <div class="bg-[var(--background)] border border-[var(--border)] rounded-xl p-1 flex items-center text-xs">
+        <button id="roleBtnStudent" onclick="switchRole('STUDENT')" class="px-3 py-1.5 rounded-lg font-medium transition-colors bg-blue-600 text-white shadow-sm flex items-center gap-1.5">
+          <span>🎓</span> Student Mode
+        </button>
+        <button id="roleBtnStaff" onclick="switchRole('STAFF')" class="px-3 py-1.5 rounded-lg font-medium transition-colors text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-1.5">
+          <span>🛡️</span> Security Staff
+        </button>
+      </div>
+      <button onclick="openSqlInspector()" class="px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:bg-[var(--background)] text-xs font-semibold flex items-center gap-1.5 text-blue-500 shadow-sm">
+        <span>⚡</span> DBMS Inspector
+      </button>
+    </div>
+  </header>
+
+  <!-- LIVE NOTIFICATION TOAST (Simulating DB Triggers) -->
+  <div id="toastNotification" class="hidden fixed bottom-6 right-6 z-50 bg-[var(--card)] border border-emerald-500/40 shadow-xl rounded-xl p-3.5 max-w-sm flex items-start gap-3 transition-all">
+    <div class="text-lg">⚡</div>
+    <div>
+      <h4 class="text-xs font-bold text-emerald-500 uppercase tracking-wider" id="toastTitle">DB Trigger Fired</h4>
+      <p class="text-xs text-[var(--foreground)] mt-0.5" id="toastMessage">Trigger recorded item audit entry into PostgreSQL.</p>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="flex border-b border-[var(--border)] gap-2 mb-6 overflow-x-auto pb-1 text-sm font-medium">
+    <button onclick="setTab('matches')" id="tab-matches" class="tab-btn px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-semibold flex items-center gap-2 whitespace-nowrap">
+      <span>✨</span> AI Match Feed (<span id="activeMatchesCount">3</span>)
+    </button>
+    <button onclick="setTab('report-lost')" id="tab-report-lost" class="tab-btn px-4 py-2 border-b-2 border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-2 whitespace-nowrap">
+      <span>📢</span> Report Lost Item
+    </button>
+    <button onclick="setTab('report-found')" id="tab-report-found" class="tab-btn px-4 py-2 border-b-2 border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-2 whitespace-nowrap">
+      <span>📦</span> Turn In Found Item
+    </button>
+    <button onclick="setTab('staff-desk')" id="tab-staff-desk" class="tab-btn px-4 py-2 border-b-2 border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-2 whitespace-nowrap">
+      <span>🛡️</span> Security Custody Desk (<span id="pendingClaimsCount">2</span>)
+    </button>
+    <button onclick="setTab('analytics')" id="tab-analytics" class="tab-btn px-4 py-2 border-b-2 border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-2 whitespace-nowrap">
+      <span>📊</span> Campus Loss Hotspots (SQL Views)
+    </button>
+    <button onclick="setTab('audit-log')" id="tab-audit-log" class="tab-btn px-4 py-2 border-b-2 border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-2 whitespace-nowrap">
+      <span>📜</span> DB Trigger Audit Log (<span id="auditCount">4</span>)
+    </button>
+  </div>
+
+  <!-- TAB 1: AI MATCH FEED (pgvector Semantic Search Showcase) -->
+  <section id="view-matches" class="tab-view block space-y-5">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-base flex items-center gap-2">
+          <span>🧠</span> Semantic Vector Pairings (`pgvector` Cosine Similarity)
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+          Real-time candidate pairing using 384-dimensional dense embeddings + location & category weights. Matches above 75% trigger instant notifications.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span class="text-[var(--muted-foreground)]">Similarity Metric:</span>
+        <code class="bg-[var(--background)] border border-[var(--border)] px-2 py-1 rounded text-purple-500 font-mono">1 - (lost.embedding <=> found.embedding)</code>
+      </div>
+    </div>
+
+    <!-- MATCH CARDS CONTAINER -->
+    <div id="matchesContainer" class="grid grid-cols-1 gap-4">
+      <!-- Populated via JavaScript -->
+    </div>
+  </section>
+
+  <!-- TAB 2: REPORT LOST ITEM FORM -->
+  <section id="view-report-lost" class="tab-view hidden max-w-2xl mx-auto">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+      <div class="border-b border-[var(--border)] pb-4 mb-5">
+        <h2 class="font-bold text-base text-[var(--foreground)] flex items-center gap-2">
+          <span>📝</span> Submit Lost Item Report
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)] mt-1">
+          When submitted, the system will vectorize your description and immediately search PostgreSQL for custody matches.
+        </p>
+      </div>
+
+      <form id="lostItemForm" onsubmit="handleReportLost(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Item Title *</label>
+          <input type="text" id="lostTitle" required placeholder="e.g. Silver MacBook Air M2 with stickers" 
+            class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Category *</label>
+            <select id="lostCategory" class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Electronics">Electronics & Laptops</option>
+              <option value="ID & Cards">Campus ID / Wallets</option>
+              <option value="Keys">Keys & Access Fobs</option>
+              <option value="Stationery">Books & Notes</option>
+              <option value="Personal Accessories">Watches, Umbrellas & Bags</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Primary Color *</label>
+            <input type="text" id="lostColor" placeholder="e.g. Space Gray, Navy Blue" required
+              class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Estimated Lost Campus Location *</label>
+            <select id="lostLocation" class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Central Library (3rd Floor Reading Hall)">Central Library (3rd Floor Reading Hall)</option>
+              <option value="B-Block (Cafeteria / Food Court)">B-Block (Cafeteria / Food Court)</option>
+              <option value="Tech Park (Level 5 CSE Labs)">Tech Park (Level 5 CSE Labs)</option>
+              <option value="GJBC Auditorium Ground Floor">GJBC Auditorium Ground Floor</option>
+              <option value="Sports Complex (Badminton Court)">Sports Complex (Badminton Court)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Date Lost *</label>
+            <input type="date" id="lostDate" required value="2026-10-30"
+              class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Detailed Visual Description (Crucial for Vector Embeddings) *</label>
+          <textarea id="lostDescription" rows="3" required placeholder="Describe scratches, unique stickers, keychains, protective cases, or specific markings..."
+            class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+
+        <!-- Real-time Embedding Simulation Preview -->
+        <div class="bg-[var(--background)] border border-[var(--border)] rounded-xl p-3 text-xs">
+          <div class="flex items-center justify-between text-[var(--muted-foreground)] mb-1">
+            <span>Vector Pipeline Output:</span>
+            <span class="text-blue-500 font-mono">384-d normalized vector</span>
+          </div>
+          <div class="font-mono text-xs text-purple-400 truncate" id="embeddingPreview">
+            [-0.0412, 0.0891, -0.0154, 0.1245, 0.0039, -0.0782, ...]
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-sm">
+          <span>🚀</span> Store in PostgreSQL & Trigger Semantic Match
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- TAB 3: REPORT FOUND ITEM FORM -->
+  <section id="view-report-found" class="tab-view hidden max-w-2xl mx-auto">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+      <div class="border-b border-[var(--border)] pb-4 mb-5">
+        <h2 class="font-bold text-base text-[var(--foreground)] flex items-center gap-2">
+          <span>📦</span> Turn In a Found Item
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)] mt-1">
+          Found items are assigned a secure custody locker at the Campus Security Desk.
+        </p>
+      </div>
+
+      <form id="foundItemForm" onsubmit="handleReportFound(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Item Title *</label>
+          <input type="text" id="foundTitle" required placeholder="e.g. Apple Laptop with Git Stickers" 
+            class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Category *</label>
+            <select id="foundCategory" class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Electronics">Electronics & Laptops</option>
+              <option value="ID & Cards">Campus ID / Wallets</option>
+              <option value="Keys">Keys & Access Fobs</option>
+              <option value="Stationery">Books & Notes</option>
+              <option value="Personal Accessories">Watches, Umbrellas & Bags</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Primary Color *</label>
+            <input type="text" id="foundColor" placeholder="e.g. Silver, Black" required
+              class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Where was it found? *</label>
+            <select id="foundLocation" class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Central Library (3rd Floor Reading Hall)">Central Library (3rd Floor Reading Hall)</option>
+              <option value="B-Block (Cafeteria / Food Court)">B-Block (Cafeteria / Food Court)</option>
+              <option value="Tech Park (Level 5 CSE Labs)">Tech Park (Level 5 CSE Labs)</option>
+              <option value="GJBC Auditorium Ground Floor">GJBC Auditorium Ground Floor</option>
+              <option value="Sports Complex (Badminton Court)">Sports Complex (Badminton Court)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Physical Custody Storage Shelf *</label>
+            <input type="text" id="foundLocker" required value="Security Locker B-14 (Tech Desk)"
+              class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-[var(--foreground)]">Objective Physical Description *</label>
+          <textarea id="foundDescription" rows="3" required placeholder="Describe appearance, condition, prominent visual indicators..."
+            class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-sm">
+          <span>📦</span> Deposit to Custody & Compute Embeddings
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- TAB 4: SECURITY CUSTODY DESK & ATOMIC HANDOVER -->
+  <section id="view-staff-desk" class="tab-view hidden space-y-5">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-base flex items-center gap-2">
+          <span>🛡️</span> Campus Security Custody & Handover Desk
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+          Review student ownership proofs and execute atomic ACID handovers (`sp_execute_item_handover`).
+        </p>
+      </div>
+      <div class="text-xs px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 font-semibold flex items-center gap-1.5">
+        <span>🔒</span> Stored Procedure Transaction Safe
+      </div>
+    </div>
+
+    <!-- PENDING CLAIMS TABLE -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 overflow-x-auto shadow-sm">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-3">Pending Ownership Claims Queue</h3>
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--border)] text-[var(--muted-foreground)]">
+            <th class="py-2.5 px-3">Item Name</th>
+            <th class="py-2.5 px-3">Claimant (Student)</th>
+            <th class="py-2.5 px-3">Secret Verification Proof Submitted</th>
+            <th class="py-2.5 px-3">Vector Match</th>
+            <th class="py-2.5 px-3">Physical Locker</th>
+            <th class="py-2.5 px-3">Status</th>
+            <th class="py-2.5 px-3 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody id="claimsTableBody" class="divide-y divide-[var(--border)]">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TAB 5: CAMPUS LOSS HOTSPOTS (SQL VIEW ANALYTICS) -->
+  <section id="view-analytics" class="tab-view hidden space-y-5">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-base flex items-center gap-2">
+          <span>📊</span> Campus Loss Hotspots (`v_campus_loss_hotspots` View)
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+          Aggregated DBMS View demonstrating `JOIN`, `GROUP BY`, `HAVING`, and window aggregate functions.
+        </p>
+      </div>
+      <button onclick="refreshAnalytics()" class="text-xs px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--card)] font-medium">
+        🔄 Re-query View
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+        <p class="text-xs text-[var(--muted-foreground)]">Total Lost Reports</p>
+        <p class="text-2xl font-bold text-blue-500 mt-1" id="statTotalLost">18</p>
+        <span class="text-xs text-[var(--muted-foreground)]">Logged in 01_schema</span>
+      </div>
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+        <p class="text-xs text-[var(--muted-foreground)]">Items in Custody</p>
+        <p class="text-2xl font-bold text-amber-500 mt-1" id="statInCustody">12</p>
+        <span class="text-xs text-[var(--muted-foreground)]">In Security Lockers</span>
+      </div>
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+        <p class="text-xs text-[var(--muted-foreground)]">Successful Handovers</p>
+        <p class="text-2xl font-bold text-emerald-500 mt-1" id="statHandovers">6</p>
+        <span class="text-xs text-[var(--muted-foreground)]">Via Stored Procedure</span>
+      </div>
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4">
+        <p class="text-xs text-[var(--muted-foreground)]">Overall Recovery Rate</p>
+        <p class="text-2xl font-bold text-purple-500 mt-1" id="statRecoveryRate">76.4%</p>
+        <span class="text-xs text-[var(--muted-foreground)]">AI Match Assisted</span>
+      </div>
+    </div>
+
+    <!-- HOTSPOTS LIST -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-4">Location Hotspot Breakdown</h3>
+      <div class="space-y-4" id="hotspotBars">
+        <!-- Generated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 6: DB TRIGGER AUDIT LOG -->
+  <section id="view-audit-log" class="tab-view hidden space-y-4">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-base flex items-center gap-2">
+          <span>📜</span> Real-time Trigger Audit Log (`item_audit_log` Table)
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+          Populated automatically by trigger `trg_audit_item_status` on `status` column updates in PostgreSQL.
+        </p>
+      </div>
+      <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-mono">
+        Trigger: trg_audit_item_status
+      </span>
+    </div>
+
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 overflow-x-auto shadow-sm">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--border)] text-[var(--muted-foreground)]">
+            <th class="py-2 px-3">Audit ID</th>
+            <th class="py-2 px-3">Table Name</th>
+            <th class="py-2 px-3">Record ID</th>
+            <th class="py-2 px-3">Old Status</th>
+            <th class="py-2 px-3">New Status</th>
+            <th class="py-2 px-3">Changed By</th>
+            <th class="py-2 px-3 text-right">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="auditTableBody" class="divide-y divide-[var(--border)] font-mono">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- CLAIM SUBMISSION MODAL -->
+  <div id="claimModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-[var(--border)] pb-3">
+        <h3 class="font-bold text-sm text-[var(--foreground)] flex items-center gap-2">
+          <span>🔐</span> Submit Ownership Verification Claim
+        </h3>
+        <button onclick="closeClaimModal()" class="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]">✕</button>
+      </div>
+
+      <div class="text-xs space-y-2">
+        <p class="text-[var(--muted-foreground)]">You are claiming ownership of the following item currently in custody:</p>
+        <div class="bg-[var(--background)] p-3 rounded-xl border border-[var(--border)]">
+          <p class="font-bold text-[var(--foreground)]" id="modalItemTitle">Apple Laptop</p>
+          <p class="text-[var(--muted-foreground)]" id="modalItemLocation">Found at: Central Library</p>
+        </div>
+      </div>
+
+      <div class="space-y-1">
+        <label class="block text-xs font-semibold text-[var(--foreground)]">
+          Secret Verification Proof (Unpublished Identifiers) *
+        </label>
+        <p class="text-xs text-[var(--muted-foreground)]">
+          State details NOT shown publicly: serial number, scratch location, wallpaper, stickers, or passcode length.
+        </p>
+        <textarea id="claimProofInput" rows="3" required placeholder="e.g. Has a small diagonal scratch near the HDMI port, laptop wallpaper is a picture of an orange cat."
+          class="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeClaimModal()" class="px-4 py-2 rounded-xl border border-[var(--border)] text-xs font-semibold text-[var(--muted-foreground)] hover:bg-[var(--background)]">
+          Cancel
+        </button>
+        <button onclick="submitOwnershipClaim()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm">
+          Submit Claim to Security Desk
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DBMS QUERY INSPECTOR MODAL -->
+  <div id="sqlModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl max-w-3xl w-full p-6 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-4">
+        <div>
+          <h3 class="font-bold text-sm text-[var(--foreground)] flex items-center gap-2">
+            <span>⚡</span> Database Architecture & Query Inspector
+          </h3>
+          <p class="text-xs text-[var(--muted-foreground)]">Direct mapping of this platform to evaluation criteria</p>
+        </div>
+        <button onclick="closeSqlInspector()" class="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]">✕</button>
+      </div>
+
+      <div class="flex border-b border-[var(--border)] gap-2 mb-4 overflow-x-auto text-xs pb-1">
+        <button onclick="showSqlTab('vector')" id="sqltab-vector" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold">1. pgvector Match Query</button>
+        <button onclick="showSqlTab('proc')" id="sqltab-proc" class="px-3 py-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)]">2. ACID Stored Procedure</button>
+        <button onclick="showSqlTab('trigger')" id="sqltab-trigger" class="px-3 py-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)]">3. Audit Trigger</button>
+        <button onclick="showSqlTab('view')" id="sqltab-view" class="px-3 py-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)]">4. Complex SQL View</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto font-mono text-xs bg-[var(--background)] p-4 rounded-xl border border-[var(--border)] text-emerald-400">
+        <pre id="sqlDisplayArea" class="whitespace-pre-wrap"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT STATE ENGINE -->
+  <script>
+    // -------------------------------------------------------------
+    // 1. IN-MEMORY DATABASE SIMULATION (Mirrors 01_schema.sql)
+    // -------------------------------------------------------------
+    let currentUserRole = 'STUDENT'; // or 'STAFF'
+    let currentStudentId = 'usr-001';
+
+    let lostItems = [
+      {
+        lost_id: 'lost-101',
+        user_name: 'Alex Chen (STU-2024-001)',
+        title: 'Silver MacBook Air M2',
+        category: 'Electronics',
+        color: 'Silver',
+        location: 'Central Library (3rd Floor Reading Hall)',
+        date_lost: '2026-10-29',
+        description: 'Silver 13-inch MacBook Air with a small GitHub Octocat sticker near trackpad and tiny dent on left corner.',
+        status: 'SEARCHING',
+        vector: [0.38, 0.82, -0.12, 0.45]
+      },
+      {
+        lost_id: 'lost-102',
+        user_name: 'Sarah Jenkins (STU-2024-042)',
+        title: 'Student ID Badge in Navy Blue Lanyard',
+        category: 'ID & Cards',
+        color: 'Blue',
+        location: 'B-Block (Cafeteria / Food Court)',
+        date_lost: '2026-10-30',
+        description: 'Campus ID Card ending in 042, dark blue woven lanyard with a metallic key ring attached.',
+        status: 'POTENTIAL_MATCH',
+        vector: [0.12, -0.45, 0.77, 0.15]
+      },
+      {
+        lost_id: 'lost-103',
+        user_name: 'Marcus Vance (STU-2024-098)',
+        title: 'Titan Black Chronograph Watch',
+        category: 'Personal Accessories',
+        color: 'Black',
+        location: 'Sports Complex (Badminton Court)',
+        date_lost: '2026-10-28',
+        description: 'Black dial with red seconds hand, metal link strap with minor scratches on buckle clasp.',
+        status: 'POTENTIAL_MATCH',
+        vector: [-0.65, 0.22, 0.14, 0.88]
+      }
+    ];
+
+    let foundItems = [
+      {
+        found_id: 'fnd-201',
+        title: 'Apple MacBook Air Laptop with Stickers',
+        category: 'Electronics',
+        color: 'Silver',
+        location: 'Central Library (3rd Floor Reading Hall)',
+        date_found: '2026-10-29',
+        locker: 'Locker B-12 (Security Central)',
+        description: 'Apple notebook computer, silver finish, coder sticker near bottom-right of keyboard, light scuff on casing.',
+        status: 'IN_CUSTODY',
+        vector: [0.36, 0.80, -0.10, 0.47] // very high cosine similarity with lost-101
+      },
+      {
+        found_id: 'fnd-202',
+        title: 'College ID Card & Lanyard',
+        category: 'ID & Cards',
+        color: 'Navy Blue',
+        location: 'B-Block (Cafeteria / Food Court)',
+        date_found: '2026-10-30',
+        locker: 'Desk Drawer A-04',
+        description: 'Campus student identification card in blue neck strap found on table 12.',
+        status: 'IN_CUSTODY',
+        vector: [0.14, -0.42, 0.75, 0.16] // matches lost-102
+      },
+      {
+        found_id: 'fnd-203',
+        title: 'Black Metal Strap Wristwatch',
+        category: 'Personal Accessories',
+        color: 'Black',
+        location: 'Sports Complex (Badminton Court)',
+        date_found: '2026-10-28',
+        locker: 'Locker C-01',
+        description: 'Black analog watch found on seating bench court 2.',
+        status: 'IN_CUSTODY',
+        vector: [-0.62, 0.20, 0.11, 0.85] // matches lost-103
+      }
+    ];
+
+    let claims = [
+      {
+        claim_id: 'clm-301',
+        lost_id: 'lost-102',
+        found_id: 'fnd-202',
+        claimant_name: 'Sarah Jenkins',
+        item_title: 'Student ID Badge in Navy Blue Lanyard',
+        verification_proof: 'Has a small silver locker key tied to the lanyard knot and ID STU-2024-042.',
+        match_score: 93.8,
+        locker: 'Desk Drawer A-04',
+        claim_status: 'SUBMITTED'
+      },
+      {
+        claim_id: 'clm-302',
+        lost_id: 'lost-103',
+        found_id: 'fnd-203',
+        claimant_name: 'Marcus Vance',
+        item_title: 'Titan Black Chronograph Watch',
+        verification_proof: 'Red seconds hand, model number stamped on back plate is 1805NM01.',
+        match_score: 89.2,
+        locker: 'Locker C-01',
+        claim_status: 'VERIFIED_BY_STAFF'
+      }
+    ];
+
+    let auditLogs = [
+      { id: 1, table: 'found_items', record: 'fnd-201', old: 'NULL', new: 'IN_CUSTODY', user: 'Officer Robert Miller', time: '10:15 AM' },
+      { id: 2, table: 'lost_items', record: 'lost-101', old: 'NULL', new: 'SEARCHING', user: 'Alex Chen', time: '10:42 AM' },
+      { id: 3, table: 'claims', record: 'clm-301', old: 'NULL', new: 'SUBMITTED', user: 'Sarah Jenkins', time: '11:05 AM' },
+      { id: 4, table: 'claims', record: 'clm-302', old: 'SUBMITTED', new: 'VERIFIED_BY_STAFF', user: 'Officer Robert Miller', time: '11:30 AM' }
+    ];
+
+    // -------------------------------------------------------------
+    // 2. VECTOR SIMILARITY ENGINE (Simulates pgvector Cosine Distance)
+    // -------------------------------------------------------------
+    function calculateCosineSimilarity(vecA, vecB) {
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < vecA.length; i++) {
+        dot += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+      }
+      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    // -------------------------------------------------------------
+    // 3. UI RENDERING & TAB NAVIGATION
+    // -------------------------------------------------------------
+    function setTab(tabId) {
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-600', 'text-blue-600', 'font-semibold');
+        btn.classList.add('border-transparent', 'text-[var(--muted-foreground)]');
+      });
+
+      const view = document.getElementById(`view-${tabId}`);
+      const btn = document.getElementById(`tab-${tabId}`);
+      if (view && btn) {
+        view.classList.remove('hidden');
+        btn.classList.add('border-blue-600', 'text-blue-600', 'font-semibold');
+        btn.classList.remove('border-transparent', 'text-[var(--muted-foreground)]');
+      }
+
+      if (tabId === 'matches') renderMatches();
+      if (tabId === 'staff-desk') renderClaimsTable();
+      if (tabId === 'analytics') renderAnalytics();
+      if (tabId === 'audit-log') renderAuditLogs();
+    }
+
+    function switchRole(role) {
+      currentUserRole = role;
+      const studentBtn = document.getElementById('roleBtnStudent');
+      const staffBtn = document.getElementById('roleBtnStaff');
+
+      if (role === 'STUDENT') {
+        studentBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-colors bg-blue-600 text-white shadow-sm flex items-center gap-1.5";
+        staffBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-colors text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-1.5";
+        showToast("Switched to Student Role", "Authenticated as Alex Chen (STU-2024-001)");
+      } else {
+        staffBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-colors bg-blue-600 text-white shadow-sm flex items-center gap-1.5";
+        studentBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-colors text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center gap-1.5";
+        showToast("Switched to Security Staff Role", "Officer Robert Miller authenticated for custody desk access.");
+      }
+    }
+
+    function showToast(title, msg) {
+      const toast = document.getElementById('toastNotification');
+      document.getElementById('toastTitle').innerText = title;
+      document.getElementById('toastMessage').innerText = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 4000);
+    }
+
+    // -------------------------------------------------------------
+    // 4. MATCH FEED RENDERER (pgvector Showcase)
+    // -------------------------------------------------------------
+    function renderMatches() {
+      const container = document.getElementById('matchesContainer');
+      container.innerHTML = '';
+
+      let matchPairs = [];
+      lostItems.filter(l => l.status !== 'CLAIMED').forEach(lost => {
+        foundItems.filter(f => f.status === 'IN_CUSTODY').forEach(found => {
+          let cosSim = calculateCosineSimilarity(lost.vector, found.vector);
+          let matchPercent = Math.min(99.4, Math.max(20, (cosSim * 100))).toFixed(1);
+
+          // Add bonus if locations match
+          let locationBonus = (lost.location === found.location) ? 4.0 : 0.0;
+          let totalScore = Math.min(99.8, parseFloat(matchPercent) + locationBonus).toFixed(1);
+
+          if (totalScore > 70) {
+            matchPairs.push({ lost, found, totalScore, rawCos: matchPercent, locationBonus });
+          }
+        });
+      });
+
+      matchPairs.sort((a, b) => b.totalScore - a.totalScore);
+      document.getElementById('activeMatchesCount').innerText = matchPairs.length;
+
+      if (matchPairs.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-[var(--muted-foreground)] text-xs bg-[var(--card)] rounded-2xl border border-[var(--border)]">No candidate pairs currently exceed the 70% threshold.</div>`;
+        return;
+      }
+
+      matchPairs.forEach(pair => {
+        const card = document.createElement('div');
+        card.className = "bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm hover:border-blue-500/50 transition-all";
+        card.innerHTML = `
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-[var(--border)] pb-4 mb-4">
+            <div class="flex items-center gap-3">
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-500">
+                ${pair.totalScore}% Match Score
+              </span>
+              <span class="text-xs text-[var(--muted-foreground)]">Category: <strong>${pair.lost.category}</strong></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openClaimModal('${pair.found.found_id}', '${pair.found.title}', '${pair.found.location}')" 
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5">
+                <span>🔐</span> Claim This Item
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- LOST ITEM CARD -->
+            <div class="bg-[var(--background)] p-4 rounded-xl border border-[var(--border)]">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-red-500 uppercase tracking-wider">Reported Lost</span>
+                <span class="text-xs text-[var(--muted-foreground)]">${pair.lost.date_lost}</span>
+              </div>
+              <h4 class="font-bold text-sm text-[var(--foreground)]">${pair.lost.title}</h4>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">${pair.lost.description}</p>
+              <div class="mt-3 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                <span>📍 ${pair.lost.location}</span>
+              </div>
+            </div>
+
+            <!-- FOUND ITEM CARD -->
+            <div class="bg-[var(--background)] p-4 rounded-xl border border-[var(--border)]">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-emerald-500 uppercase tracking-wider">Found in Custody</span>
+                <span class="text-xs text-[var(--muted-foreground)]">${pair.found.date_found}</span>
+              </div>
+              <h4 class="font-bold text-sm text-[var(--foreground)]">${pair.found.title}</h4>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">${pair.found.description}</p>
+              <div class="mt-3 flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                <span>📍 ${pair.found.location}</span>
+                <span class="font-semibold text-amber-500">🔒 ${pair.found.locker}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-[var(--border)] flex flex-wrap items-center justify-between text-xs text-[var(--muted-foreground)]">
+            <div class="flex items-center gap-4">
+              <span>Embedding Cosine: <code class="text-purple-400 font-mono">${pair.rawCos}%</code></span>
+              <span>Location Bonus: <code class="text-emerald-400 font-mono">+${pair.locationBonus}%</code></span>
+            </div>
+            <span class="font-mono text-blue-500">Query: SELECT * FROM fn_match_lost_item(...)</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 5. FORM HANDLERS
+    // -------------------------------------------------------------
+    function handleReportLost(e) {
+      e.preventDefault();
+      const title = document.getElementById('lostTitle').value;
+      const cat = document.getElementById('lostCategory').value;
+      const color = document.getElementById('lostColor').value;
+      const loc = document.getElementById('lostLocation').value;
+      const date = document.getElementById('lostDate').value;
+      const desc = document.getElementById('lostDescription').value;
+
+      // Generate simulated vector
+      const newLost = {
+        lost_id: `lost-${Math.floor(100 + Math.random() * 900)}`,
+        user_name: 'Alex Chen (STU-2024-001)',
+        title: title,
+        category: cat,
+        color: color,
+        location: loc,
+        date_lost: date,
+        description: desc,
+        status: 'SEARCHING',
+        vector: [0.35 + Math.random() * 0.1, 0.78 + Math.random() * 0.1, -0.11, 0.44]
+      };
+
+      lostItems.unshift(newLost);
+
+      // Trigger audit log entry simulation
+      auditLogs.unshift({
+        id: auditLogs.length + 1,
+        table: 'lost_items',
+        record: newLost.lost_id,
+        old: 'NULL',
+        new: 'SEARCHING',
+        user: 'Alex Chen',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      document.getElementById('lostItemForm').reset();
+      showToast("PostgreSQL INSERT Succeeded", `Generated 384-d vector for '${title}' and triggered pgvector search!`);
+      setTab('matches');
+    }
+
+    function handleReportFound(e) {
+      e.preventDefault();
+      const title = document.getElementById('foundTitle').value;
+      const cat = document.getElementById('foundCategory').value;
+      const color = document.getElementById('foundColor').value;
+      const loc = document.getElementById('foundLocation').value;
+      const locker = document.getElementById('foundLocker').value;
+      const desc = document.getElementById('foundDescription').value;
+
+      const newFound = {
+        found_id: `fnd-${Math.floor(200 + Math.random() * 800)}`,
+        title: title,
+        category: cat,
+        color: color,
+        location: loc,
+        date_found: new Date().toISOString().split('T')[0],
+        locker: locker,
+        description: desc,
+        status: 'IN_CUSTODY',
+        vector: [0.34 + Math.random() * 0.1, 0.79 + Math.random() * 0.1, -0.09, 0.46]
+      };
+
+      foundItems.unshift(newFound);
+
+      // Trigger audit log
+      auditLogs.unshift({
+        id: auditLogs.length + 1,
+        table: 'found_items',
+        record: newFound.found_id,
+        old: 'NULL',
+        new: 'IN_CUSTODY',
+        user: 'Desk Officer',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      document.getElementById('foundItemForm').reset();
+      showToast("Custody Record Created", `Assigned to ${locker}. Embeddings indexed in HNSW table.`);
+      setTab('matches');
+    }
+
+    // -------------------------------------------------------------
+    // 6. CLAIMS & ATOMIC HANDOVER PROCEDURE EXECUTION
+    // -------------------------------------------------------------
+    let selectedClaimFoundId = null;
+
+    function openClaimModal(foundId, title, location) {
+      selectedClaimFoundId = foundId;
+      document.getElementById('modalItemTitle').innerText = title;
+      document.getElementById('modalItemLocation').innerText = `Location: ${location}`;
+      document.getElementById('claimModal').classList.remove('hidden');
+    }
+
+    function closeClaimModal() {
+      document.getElementById('claimModal').classList.add('hidden');
+    }
+
+    function submitOwnershipClaim() {
+      const proof = document.getElementById('claimProofInput').value;
+      if (!proof) { alert("Please provide verification proof."); return; }
+
+      const foundObj = foundItems.find(f => f.found_id === selectedClaimFoundId);
+      const newClaim = {
+        claim_id: `clm-${Math.floor(300 + Math.random() * 700)}`,
+        lost_id: 'lost-101',
+        found_id: selectedClaimFoundId,
+        claimant_name: 'Alex Chen',
+        item_title: foundObj.title,
+        verification_proof: proof,
+        match_score: 95.4,
+        locker: foundObj.locker,
+        claim_status: 'SUBMITTED'
+      };
+
+      claims.unshift(newClaim);
+
+      auditLogs.unshift({
+        id: auditLogs.length + 1,
+        table: 'claims',
+        record: newClaim.claim_id,
+        old: 'NULL',
+        new: 'SUBMITTED',
+        user: 'Alex Chen',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      closeClaimModal();
+      document.getElementById('claimProofInput').value = '';
+      showToast("Claim Submitted to Security Desk", "Staff will verify proof before releasing from locker.");
+      setTab('staff-desk');
+    }
+
+    function renderClaimsTable() {
+      const tbody = document.getElementById('claimsTableBody');
+      tbody.innerHTML = '';
+      document.getElementById('pendingClaimsCount').innerText = claims.filter(c => c.claim_status !== 'HANDED_OVER').length;
+
+      claims.forEach(clm => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-[var(--background)] transition-colors";
+        
+        let statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500">${clm.claim_status}</span>`;
+        if (clm.claim_status === 'VERIFIED_BY_STAFF') {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500">VERIFIED</span>`;
+        } else if (clm.claim_status === 'HANDED_OVER') {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500">HANDED OVER</span>`;
+        }
+
+        let actionBtn = '';
+        if (clm.claim_status !== 'HANDED_OVER') {
+          actionBtn = `
+            <button onclick="executeAtomicHandover('${clm.claim_id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1 ml-auto">
+              <span>⚡</span> Handover
+            </button>
+          `;
+        } else {
+          actionBtn = `<span class="text-xs text-[var(--muted-foreground)] italic">Completed</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-semibold text-[var(--foreground)]">${clm.item_title}</td>
+          <td class="py-3 px-3 text-[var(--foreground)]">${clm.claimant_name}</td>
+          <td class="py-3 px-3 text-[var(--muted-foreground)] max-w-xs truncate" title="${clm.verification_proof}">${clm.verification_proof}</td>
+          <td class="py-3 px-3 font-mono text-purple-400 font-semibold">${clm.match_score}%</td>
+          <td class="py-3 px-3 text-amber-500 font-semibold">${clm.locker}</td>
+          <td class="py-3 px-3">${statusBadge}</td>
+          <td class="py-3 px-3 text-right">${actionBtn}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // SIMULATES THE STORED PROCEDURE: sp_execute_item_handover
+    function executeAtomicHandover(claimId) {
+      const claim = claims.find(c => c.claim_id === claimId);
+      if (!claim) return;
+
+      // 1. Transaction step 1: Update claim
+      claim.claim_status = 'HANDED_OVER';
+
+      // 2. Transaction step 2: Update found item status
+      const found = foundItems.find(f => f.found_id === claim.found_id);
+      if (found) found.status = 'RETURNED_TO_OWNER';
+
+      // 3. Transaction step 3: Update lost item status
+      const lost = lostItems.find(l => l.lost_id === claim.lost_id);
+      if (lost) lost.status = 'CLAIMED';
+
+      // 4. Trigger fired: Record in audit log
+      auditLogs.unshift({
+        id: auditLogs.length + 1,
+        table: 'claims',
+        record: claimId,
+        old: 'VERIFIED_BY_STAFF',
+        new: 'HANDED_OVER',
+        user: 'Officer Robert Miller',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+
+      renderClaimsTable();
+      renderMatches();
+      showToast(
+        "ACID Stored Procedure Executed!", 
+        `CALL sp_execute_item_handover('${claimId}') committed. Locker ${claim.locker} cleared.`
+      );
+    }
+
+    // -------------------------------------------------------------
+    // 7. ANALYTICS (v_campus_loss_hotspots View)
+    // -------------------------------------------------------------
+    function renderAnalytics() {
+      const hotspots = [
+        { building: "Central Library (3rd Floor Reading Hall)", zone: "LIBRARY", lost: 7, recovered: 6, rate: 85.7 },
+        { building: "B-Block (Cafeteria / Food Court)", zone: "CAFETERIA", lost: 5, recovered: 4, rate: 80.0 },
+        { building: "Tech Park (Level 5 CSE Labs)", zone: "LAB", lost: 4, recovered: 3, rate: 75.0 },
+        { building: "Sports Complex (Badminton Court)", zone: "SPORTS_COMPLEX", lost: 2, recovered: 1, rate: 50.0 }
+      ];
+
+      const container = document.getElementById('hotspotBars');
+      container.innerHTML = '';
+
+      hotspots.forEach(h => {
+        const item = document.createElement('div');
+        item.className = "bg-[var(--background)] p-3.5 rounded-xl border border-[var(--border)]";
+        item.innerHTML = `
+          <div class="flex items-center justify-between text-xs mb-1.5">
+            <span class="font-bold text-[var(--foreground)]">${h.building}</span>
+            <span class="text-emerald-500 font-bold">${h.rate}% Recovery Rate</span>
+          </div>
+          <div class="w-full bg-[var(--border)] rounded-full h-2 mb-2 overflow-hidden">
+            <div class="bg-blue-600 h-2 rounded-full" style="width: ${h.rate}%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-[var(--muted-foreground)]">
+            <span>Zone: ${h.zone}</span>
+            <span>Total Lost: ${h.lost} | Recovered: ${h.recovered}</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function refreshAnalytics() {
+      showToast("View Refreshed", "SELECT * FROM v_campus_loss_hotspots executed.");
+      renderAnalytics();
+    }
+
+    // -------------------------------------------------------------
+    // 8. AUDIT LOG (Triggers)
+    // -------------------------------------------------------------
+    function renderAuditLogs() {
+      const tbody = document.getElementById('auditTableBody');
+      tbody.innerHTML = '';
+      document.getElementById('auditCount').innerText = auditLogs.length;
+
+      auditLogs.forEach(log => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-[var(--background)]";
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 text-[var(--muted-foreground)]">#${log.id}</td>
+          <td class="py-2.5 px-3 text-blue-400 font-semibold">${log.table}</td>
+          <td class="py-2.5 px-3 text-[var(--foreground)]">${log.record}</td>
+          <td class="py-2.5 px-3 text-red-400">${log.old}</td>
+          <td class="py-2.5 px-3 text-emerald-400 font-bold">${log.new}</td>
+          <td class="py-2.5 px-3 text-[var(--foreground)]">${log.user}</td>
+          <td class="py-2.5 px-3 text-right text-[var(--muted-foreground)]">${log.time}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 9. DBMS SQL INSPECTOR
+    // -------------------------------------------------------------
+    const SQL_SNIPPETS = {
+      vector: `-- 1. pgvector Semantic Search Query with HNSW Index
+-- File: database/03_functions_procedures.sql
+
+CREATE OR REPLACE FUNCTION fn_match_lost_item(
+    p_lost_id UUID,
+    p_top_k INT DEFAULT 5,
+    p_threshold FLOAT DEFAULT 0.65
+)
+RETURNS TABLE (
+    found_id UUID,
+    title VARCHAR,
+    storage_custody_location VARCHAR,
+    cosine_similarity NUMERIC,
+    composite_score NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH lost_vector AS (
+        SELECT embedding, lost_location_id, category_id
+        FROM lost_items
+        WHERE lost_id = p_lost_id
+    )
+    SELECT 
+        f.found_id,
+        f.title,
+        f.storage_custody_location,
+        ROUND((1 - (f.embedding <=> lv.embedding))::NUMERIC * 100, 2) AS cosine_similarity,
+        ROUND((
+            ((1 - (f.embedding <=> lv.embedding)) * 85) +
+            (CASE WHEN f.found_location_id = lv.lost_location_id THEN 10 ELSE 0 END) +
+            (CASE WHEN f.category_id = lv.category_id THEN 5 ELSE 0 END)
+        )::NUMERIC, 2) AS composite_score
+    FROM found_items f, lost_vector lv
+    WHERE f.status = 'IN_CUSTODY'
+      AND (1 - (f.embedding <=> lv.embedding)) >= p_threshold
+    ORDER BY f.embedding <=> lv.embedding ASC
+    LIMIT p_top_k;
+END;
+$$ LANGUAGE plpgsql;`,
+
+      proc: `-- 2. Multi-statement ACID Handover Stored Procedure
+-- File: database/03_functions_procedures.sql
+
+CREATE OR REPLACE PROCEDURE sp_execute_item_handover(
+    p_claim_id UUID,
+    p_staff_id UUID,
+    p_remarks TEXT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_lost_id UUID;
+    v_found_id UUID;
+    v_claimant_id UUID;
+    v_current_status VARCHAR(20);
+BEGIN
+    -- Row-level locking to prevent race conditions during physical release
+    SELECT lost_id, found_id, claimant_user_id, claim_status
+    INTO v_lost_id, v_found_id, v_claimant_id, v_current_status
+    FROM claims
+    WHERE claim_id = p_claim_id
+    FOR UPDATE;
+
+    IF v_current_status NOT IN ('SUBMITTED', 'VERIFIED_BY_STAFF') THEN
+        RAISE EXCEPTION 'Claim % cannot be handed over. Current status: %', p_claim_id, v_current_status;
+    END IF;
+
+    -- 1. Insert Handover Custody Record
+    INSERT INTO custody_handovers (handover_id, claim_id, authorized_by_staff_id, received_by_user_id, remarks)
+    VALUES (gen_random_uuid(), p_claim_id, p_staff_id, v_claimant_id, p_remarks);
+
+    -- 2. Mark Found Item as Returned
+    UPDATE found_items
+    SET status = 'RETURNED_TO_OWNER'
+    WHERE found_id = v_found_id;
+
+    -- 3. Mark Lost Item as Claimed/Closed
+    UPDATE lost_items
+    SET status = 'CLAIMED'
+    WHERE lost_id = v_lost_id;
+
+    -- 4. Mark Claim as Handed Over
+    UPDATE claims
+    SET claim_status = 'HANDED_OVER'
+    WHERE claim_id = p_claim_id;
+
+    -- All statements committed atomically
+END;
+$$;`,
+
+      trigger: `-- 3. Automated State Audit Trigger
+-- File: database/04_triggers.sql
+
+CREATE OR REPLACE FUNCTION fn_audit_item_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (OLD.status IS DISTINCT FROM NEW.status) THEN
+        INSERT INTO item_audit_log (
+            table_name,
+            record_id,
+            old_status,
+            new_status,
+            changed_by,
+            changed_at
+        )
+        VALUES (
+            TG_TABLE_NAME,
+            NEW.found_id, -- or NEW.lost_id dynamically
+            OLD.status,
+            NEW.status,
+            CURRENT_USER,
+            CURRENT_TIMESTAMP
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_audit_found_item_status
+AFTER UPDATE OF status ON found_items
+FOR EACH ROW
+EXECUTE FUNCTION fn_audit_item_status_change();`,
+
+      view: `-- 4. Campus Loss Hotspot View (GROUP BY, HAVING, AGGREGATES)
+-- File: database/02_views.sql
+
+CREATE OR REPLACE VIEW v_campus_loss_hotspots AS
+SELECT 
+    cl.location_id,
+    cl.building_name,
+    cl.zone_type,
+    COUNT(DISTINCT l.lost_id) AS total_lost_reported,
+    COUNT(DISTINCT f.found_id) AS total_found_in_custody,
+    COUNT(DISTINCT CASE WHEN f.status = 'RETURNED_TO_OWNER' THEN f.found_id END) AS total_recovered,
+    ROUND(
+        (COUNT(DISTINCT CASE WHEN f.status = 'RETURNED_TO_OWNER' THEN f.found_id END)::NUMERIC / 
+        NULLIF(COUNT(DISTINCT l.lost_id), 0)::NUMERIC) * 100, 
+        2
+    ) AS recovery_rate_percentage
+FROM campus_locations cl
+LEFT JOIN lost_items l ON cl.location_id = l.lost_location_id
+LEFT JOIN found_items f ON cl.location_id = f.found_location_id
+GROUP BY cl.location_id, cl.building_name, cl.zone_type
+HAVING COUNT(DISTINCT l.lost_id) > 0
+ORDER BY total_lost_reported DESC;`
+    };
+
+    function openSqlInspector() {
+      document.getElementById('sqlModal').classList.remove('hidden');
+      showSqlTab('vector');
+    }
+
+    function closeSqlInspector() {
+      document.getElementById('sqlModal').classList.add('hidden');
+    }
+
+    function showSqlTab(type) {
+      ['vector', 'proc', 'trigger', 'view'].forEach(t => {
+        const btn = document.getElementById(`sqltab-${t}`);
+        if (btn) {
+          if (t === type) {
+            btn.className = "px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold";
+          } else {
+            btn.className = "px-3 py-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)]";
+          }
+        }
+      });
+      document.getElementById('sqlDisplayArea').textContent = SQL_SNIPPETS[type] || '';
+    }
+
+    // INITIALIZATION
+    window.addEventListener('DOMContentLoaded', () => {
+      renderMatches();
+      renderClaimsTable();
+      renderAnalytics();
+      renderAuditLogs();
+    });
+  </script>
+</body>
+</html>
