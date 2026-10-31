@@ -8,3 +8,5 @@ out/
 Thumbs.db
 *.log
 pgdata/
+*.tsbuildinfo
+next-env.d.ts
